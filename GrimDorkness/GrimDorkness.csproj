@@ -125,6 +125,7 @@
     <Compile Include="Elements\Entities\Explosion.cs" />
     <Compile Include="Elements\Entities\PlayerShip.cs" />
     <Compile Include="Core\Element.cs" />
+    <Compile Include="Elements\Effects\Fader.cs" />
     <Compile Include="Elements\HUD\HealthBar.cs" />
     <Compile Include="Elements\HUDElement.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

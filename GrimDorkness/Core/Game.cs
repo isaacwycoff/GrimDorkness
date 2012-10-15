@@ -29,13 +29,7 @@ namespace GrimDorkness
         const int SCREEN_WIDTH = 800;
         const int SCREEN_HEIGHT = 600;
 
-        enum FadeStatus
-        {
-            noFade = 0,
-            fadeOut = 1,
-            fadeIn = 2,
-            black = 3
-        };
+
 
         enum GameStatus
         {
@@ -48,15 +42,10 @@ namespace GrimDorkness
 
         };
 
-       
-        const float FADE_SHIFT = 0.01f;         // FIXME    -- this should be a part of a separate "fader" class
-
-        FadeStatus fadeStatus = FadeStatus.fadeIn;
-
-        float currentFade = 1.0f;
+        Fader fader;
 
 
-        const int ZEPPELIN_FREQUENCY = 100;     // FIXME
+        const int ZEPPELIN_FREQUENCY = 100;     // FIXME: this should be controlled elsewhere
 
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
@@ -75,7 +64,6 @@ namespace GrimDorkness
         // every frame:
         PlayerShip player;
 
-//        ZeppelinBoss zeppBoss;              
 
         List<Entity> listOfEntities;
         List<Entity> listOfExplosions;
@@ -106,9 +94,9 @@ namespace GrimDorkness
         SoundEffect gunShot1;
         SoundEffect engineLoop;
 
-        Random randomizer;
+        Random randomizer;      // random number generator used throughout the class
 
-        Rectangle fullScreen;
+        Rectangle fullScreen;       // rectangle used to determine the dimensions of the screen for drawing
 
         GameStatus gameState;
 
@@ -135,6 +123,8 @@ namespace GrimDorkness
 
             fullScreen = new Rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+
+
         }
 
         // parse the user's input --
@@ -157,7 +147,6 @@ namespace GrimDorkness
                     gameState = GameStatus.restart;
                 }
             }
-
 
             bool noInput = true;
 
@@ -308,6 +297,10 @@ namespace GrimDorkness
                 powerUpsTexture
             };
 
+            // create the full-screen fader for fading in and out (how cinematic!)
+            fader = new Fader(blackPixelTexture, fullScreen);
+            fader.fadeIn(Fader.DEFAULT_FADE_SHIFT);
+
             // create our player's ship and assign it:
             player = new PlayerShip(myTexture);
 
@@ -318,6 +311,8 @@ namespace GrimDorkness
             PowerUp tmpPowerUp = new PowerUp(powerUpsTexture, PowerUpType.repair, new Vector2(400, 100));
 
             listOfPowerUps.Add(tmpPowerUp);
+
+
 
 /*            // test enemy -- this should really go elsewhere:
             EnemyShip tmpEnemy = new EnemyShip(enemyTexture, ShipType.Grey, AIType.Basic, new Vector2(300, 0), this);
@@ -358,6 +353,8 @@ namespace GrimDorkness
         protected override void Update(GameTime gameTime)
         {
 
+            fader.Update(gameTime);
+
             if (gameState == GameStatus.startMenu)
             {
                 ParseInput(gameTime);           // fixme
@@ -382,12 +379,13 @@ namespace GrimDorkness
             if (numberOfEnemies < MAX_ENEMIES && randomizer.Next(10) < 1)
             {
 
-                Vector2 tmpVector = new Vector2(randomizer.Next(10, 790), -50);
+                Vector2 tmpVector = new Vector2(randomizer.Next(10, 790), -50);     // FIXME: get rid of magic numbers
 
                 ShipType tmpShipType = (ShipType)randomizer.Next(0, 3);
 
                 AIType tmpAIType = (AIType)randomizer.Next(0, 4);
 
+                // FIXME: this should be controlled differently
                 if (enemiesPassed % ZEPPELIN_FREQUENCY == (ZEPPELIN_FREQUENCY - 1))
                 {
                     ZeppelinBoss tmpZepp = new ZeppelinBoss(zeppelinTexture, new Vector2(400, -250), this);
@@ -419,7 +417,7 @@ namespace GrimDorkness
                 if (!tmpEntity.isVisible()) entitiesToDelete.Add(tmpEntity);
             }
 
-            // collision detection
+            // collision detection -- FIXME: this should be its own function at the very least.
             for (int compare_index1 = 0; compare_index1 < listOfEntities.Count; compare_index1++)
             {
                 for (int compare_index2 = compare_index1 + 1; compare_index2 < listOfEntities.Count; compare_index2++)
@@ -491,6 +489,7 @@ namespace GrimDorkness
                     }
                 }
 
+                // FIXME: this is messy! should probably be split off
                 if (player.GetHealth() <= 0 && gameState == GameStatus.game)
                 {
                     gameState = GameStatus.dead;
@@ -543,12 +542,11 @@ namespace GrimDorkness
             }
 
 
-
-
             base.Update(gameTime);
         }
         // end Update()
 
+        // FIXME: might want to have a separate class for dealing with score
         public void addPoints(int points)
         {
 
@@ -576,23 +574,19 @@ namespace GrimDorkness
                             DepthStencilState.Default,          //
                             RasterizerState.CullNone);          // TODO: Research
 
-            // deprecated XNA 3.1 version:            
-//            spriteBatch.Begin(SpriteBlendMode.AlphaBlend,
-//            SpriteSortMode.Immediate, SaveStateMode.None);
-//            graphics.GraphicsDevice.SamplerStates[0].MagFilter = TextureFilter.None;        // turn off magnification blurring
-
+            // FIXME: create separate cloud-overlay class
             // begin janky cloud-drawing code: (should put this off in its own class)
 
-            Rectangle tmpBackgroundRect = new Rectangle(0, cloudsOffset, 800, 600);
+            Rectangle tmpBackgroundRect = new Rectangle(0, cloudsOffset, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             spriteBatch.Draw(cloudsTexture, tmpBackgroundRect, Color.White);
 
-            tmpBackgroundRect = new Rectangle(0, cloudsOffset - 600, 800, 600);
+            tmpBackgroundRect = new Rectangle(0, cloudsOffset - SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             spriteBatch.Draw(cloudsTexture, tmpBackgroundRect, Color.White);
 
             cloudsOffset += 1;
-            if (cloudsOffset > 600) cloudsOffset -= 600;
+            if (cloudsOffset > 600) cloudsOffset -= SCREEN_HEIGHT;
 
             // end janky cloud-drawing code
 
@@ -617,24 +611,26 @@ namespace GrimDorkness
             }
 
 
+            // FIXME: this should be in its own crowd-drawing class
             // foreground clouds -- janky as fuck --- TODO: put this in a separate class
 
-            Rectangle tmpForegroundRect = new Rectangle(0, fastCloudsOffset, 800, 600);
+            Rectangle tmpForegroundRect = new Rectangle(0, fastCloudsOffset, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-//            Color transparentColor = new Color(1.0f, 1.0f, 1.0f, 0.25f);          // XNA 3.1 version
+//          Color transparentColor = new Color(1.0f, 1.0f, 1.0f, 0.25f);          // XNA 3.1 version
+            // FIXME: don't redefine this every frame! that is DUMB.
             Color transparentColor = new Color(0.25f, 0.25f, 0.25f, 0.25f);         // XNA 4.0 version
 
             spriteBatch.Draw(cloudsTexture, tmpForegroundRect, transparentColor);
 
-            tmpForegroundRect = new Rectangle(0, fastCloudsOffset - 600, 800, 600);
+            tmpForegroundRect = new Rectangle(0, fastCloudsOffset - SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             spriteBatch.Draw(cloudsTexture, tmpForegroundRect, transparentColor);
 
             fastCloudsOffset += 5;
-            if (fastCloudsOffset > 600) fastCloudsOffset -= 600;
+            if (fastCloudsOffset > SCREEN_HEIGHT) fastCloudsOffset -= SCREEN_HEIGHT;
 
-            //
 
+            // debugging text -- FIXME: put this in its own function
             string output = "";
 
             // Draw debugging text:
@@ -693,33 +689,7 @@ namespace GrimDorkness
 
             }
 
-            // draw fade:
-            if (fadeStatus != FadeStatus.noFade)
-            {
-                Color fadeColor = new Color(1.0f, 1.0f, 1.0f, currentFade);
-
-                if (fadeStatus == FadeStatus.fadeOut)
-                {
-                    currentFade += FADE_SHIFT;
-                    if (currentFade >= 1.0f)
-                    {
-                        fadeStatus = FadeStatus.black;
-                        currentFade = 1.0f;
-                    }
-
-                }
-                if (fadeStatus == FadeStatus.fadeIn)
-                {
-                    currentFade -= FADE_SHIFT;
-                    if (currentFade <= 0.0f)
-                    {
-                        fadeStatus = FadeStatus.noFade;
-                        currentFade = 0.0f;
-                    }
-
-                }
-                spriteBatch.Draw(blackPixelTexture, fullScreen, fadeColor);
-            }
+            fader.Draw(spriteBatch, gameTime);      // fader overlay for fading in and out
 
             // end drawing:
             spriteBatch.End();
